@@ -1,10 +1,13 @@
 import { group, sleep } from 'k6';
 import { check } from 'k6';
 import http from 'k6/http';
+import { Counter, Rate } from 'k6/metrics';
 
 const BASE_URL = 'https://quickpizza.grafana.com/'; // Replace with actual base URL of the application
 
 const PASSWORD = 'securepassword123';
+const authenticationRate = new Rate('authentication_rate'); // Custom metric to track the rate of successful authentications
+const ordersSuccessful = new Counter('orders_successful'); // Custom metric to count the number of successful orders created
 
 function randomString(length) { // Generate a random string for unique usernames
    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -27,8 +30,9 @@ export const options = { // Define the load test options
       'http_req_duration': ['p(95)<400'],
       'checks': ['rate>0.90'],
       'iteration_duration': ['p(95)<400'],
-      'group_duration{group:::Order management}': ['p(95)<800']
-
+      'group_duration{group:::Order management}': ['p(95)<500'],
+      'authentication_rate': ['rate>0.90'], // Ensure that at least 90% of authentication attempts are successful
+      'orders_successful': ['count>0'] // Ensure that at least one order is successfully created during the test
 
    }
 
@@ -92,11 +96,13 @@ export default function () { // Simulate user registration
       })
 
       if (userAuthenticated) {
+         authenticationRate.add(1); // Increment the custom metric for successful authentications
 
          authToken = loginResponse.json('token'); // Log the response body if user authentication fails
          console.log(`user authenticated successfully: ${USERNAME}`)
       }
       else {
+         authenticationRate.add(0); // Increment the custom metric for failed authentications
          console.log(`user authentication failed: ${loginResponse.status} - ${loginResponse.body}`); // Log an error message if user authentication fails
       }
    })
@@ -129,10 +135,12 @@ export default function () { // Simulate user registration
 
       let orderId;
       if (orderCreated) {
+         ordersSuccessful.add(1); // Increment the custom metric for successful orders created
          orderId = createOrderResponse.json('pizza.id'); // Log the response body if order creation is successful
          console.log(`order created successfully for user: ${orderId}`);
       }
       else {
+         ordersSuccessful.add(0); // Increment the custom metric for failed orders created
          console.log(`order creation failed: ${createOrderResponse.status} - ${createOrderResponse.body}`); // Log an error message if order creation fails
          return; // Exit the function if order creation fails to avoid further steps
       }
