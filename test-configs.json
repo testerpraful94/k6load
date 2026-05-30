@@ -1,0 +1,86 @@
+{
+    "smoke": {
+        "description": "Run a quick smoke test to verify basic functionality.",
+        "stages": [
+            { "duration": "5s", "target": 1 }
+        ],
+        "thresholds": {
+            "http_req_duration": ["p(95)<2000"],
+            "checks": ["rate>0.90"],
+            "authentication_rate": ["rate>0.90"],
+            "orders_successful": ["count>0"]
+        }
+    },
+    "load": {
+        "description": "Simulate a typical load pattern to evaluate performance under normal conditions.",
+        "stages": [
+            { "duration": "2m", "target": 2 },
+            { "duration": "5m", "target": 2 },
+            { "duration": "2m", "target": 2 },
+            { "duration": "5m", "target": 2 },
+            { "duration": "2m", "target": 1 },
+            { "duration": "3m", "target": 0 }
+        ],
+        "thresholds": {
+            "http_req_duration": ["p(95)<5000"],
+            "checks": ["rate>0.80"],
+            "http_req_duration{name:create_order}": ["p(95)<1200"],
+            "group_duration{group:::Order management}": ["avg<1500"],
+            "authentication_rate": ["rate>0.90"],
+            "orders_successful": ["count>25"]
+        }
+    },
+    "stress": {
+        "description": "Push the system to its limits to identify breaking points and bottlenecks.",
+        "stages": [
+            { "duration": "2m", "target": 10 },
+            { "duration": "5m", "target": 20 },
+            { "duration": "2m", "target": 50 },
+            { "duration": "5m", "target": 50 },
+            { "duration": "2m", "target": 100 },
+            { "duration": "5m", "target": 0 }
+        ],
+        "thresholds": {
+            "http_req_duration": ["p(95)<8000"],
+            "checks": ["rate>0.80"],
+            "http_req_duration{name:create_order}": ["p(95)<1200"],
+            "group_duration{group:::Order management}": ["avg<1500"],
+            "authentication_rate": ["rate>0.90"],
+            "orders_successful": ["count>5"]
+        }
+    },
+    "soak": {
+        "description": "Evaluate long-term stability and performance under sustained load.",
+        "stages": [
+            { "duration": "3m", "target": 10 },
+            { "duration": "2h", "target": 10 },
+            { "duration": "3m", "target": 0 }
+        ],
+        "thresholds": {
+            "http_req_duration": ["p(95)<5000"],
+            "checks": ["rate>0.80"],
+            "http_req_duration{name:create_order}": ["p(95)<2500"],
+            "group_duration{group:::Order management}": ["avg<2500"],
+            "authentication_rate": ["rate>0.90"],
+            "orders_successful": ["count>10"]
+        }
+    },
+    "spike": {
+        "description": "Test the system's ability to handle sudden spikes in traffic.",
+        "stages": [
+            { "duration": "10s", "target": 10 },
+            { "duration": "1m", "target": 10 },
+            { "duration": "10s", "target": 50 },
+            { "duration": "3m", "target": 50 },
+            { "duration": "10s", "target": 10 },
+            { "duration": "3m", "target": 10 },
+            { "duration": "10s", "target": 0 }
+        ],
+        "thresholds": {
+            "http_req_duration": ["p(95)<6000"],
+            "checks": ["rate>0.80"],
+            "authentication_rate": ["rate>0.85"],
+            "orders_successful": ["count>15"]
+        }
+    }
+}

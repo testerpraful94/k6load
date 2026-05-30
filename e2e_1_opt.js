@@ -5,9 +5,22 @@ import { Counter, Rate } from 'k6/metrics';
 
 const BASE_URL = 'https://quickpizza.grafana.com/'; // Replace with actual base URL of the application
 
-const PASSWORD = 'securepassword123';
+
 const authenticationRate = new Rate('authentication_rate'); // Custom metric to track the rate of successful authentications
 const ordersSuccessful = new Counter('orders_successful'); // Custom metric to count the number of successful orders created
+
+const configsObj=JSON.parse(open('test-configs.json')); // Load test configuration from an external JSON file (not used in the provided code snippet, but can be utilized for dynamic test data)
+const userTemplate=JSON.parse(open('users.json')); // Load user data from an external JSON file (not used in the provided code snippet, but can be utilized for dynamic user data during registration)
+const PASSWORD = userTemplate.password; // Extract the password from the user template for use in user registration and authentication steps
+
+function getTestConfig()
+{
+   const testType= __ENV.TEST_TYPE || 'smoke'; // Get the test type from environment variables, defaulting to 'smoke' if not provided
+   const config= configsObj[testType];
+   console.log(config);
+
+   return config;
+}
 
 function randomString(length) { // Generate a random string for unique usernames
    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -18,35 +31,40 @@ function randomString(length) { // Generate a random string for unique usernames
    }
    return result;
 }
+const selectedConfig= getTestConfig();
 export const options = { // Define the load test options
 
    cloud: {
     // Project: Default project
-    projectID: 7643094,
+    projectID: 7643094, // Replace with your actual project ID from k6 Cloud
     // Test runs with the same name groups test runs together.
     name: 'Test e2e',
   },
 
-   stages: [
-      { duration: '5s', target: 2 },
-      { duration: '5s', target: 4 },
-      { duration: '3s', target: 0 }
+   stages: selectedConfig.stages, // Define the stages of the load test based on the selected configuration from the JSON file
+   thresholds: selectedConfig.thresholds // Define the thresholds for the test based on the selected configuration from the JSON file, including custom metrics for authentication rate and successful orders created
+      
 
-   ],
-   thresholds: {
-      'http_req_duration': ['p(95)<2000'],
-      'checks': ['rate>0.90'],
-      'iteration_duration': ['p(95)<5000'],
-      'group_duration{group:::Order management}': ['p(95)<2500'],
-      'authentication_rate': ['rate>0.90'], // Ensure that at least 90% of authentication attempts are successful
-      'orders_successful': ['count>0'] // Ensure that at least one order is successfully created during the test
+   }
+   export function setup()
+   {
+      const apiCheck= http.get(`${BASE_URL}/`); // Perform a setup step to warm up the application before the actual test execution begins, ensuring that the application is responsive and ready for the load test
+      if(apiCheck.status === 0)
+      {
+         console.log("Api is unreachable"); // Log an error message if the API is unreachable, providing immediate feedback about connectivity issues
+         throw new Error("Api endpoint is not available"); // Throw an error if the API endpoint is not available, preventing the test from running and providing immediate feedback about the issue
+      }
 
+      const testConfig = {
+         testStartTime: new Date().toISOString() // Record the start time of the test in ISO format for later analysis and reporting
+      }
+      return testConfig; // Return the test configuration object to be used in the default function during the test execution
    }
 
 
-}
 
-export default function () { // Simulate user registration
+
+export default function (data) { // Simulate user registration
 
    let userRegistered = false;
    let userAuthenticated = false;
@@ -167,4 +185,10 @@ export default function () { // Simulate user registration
          console.log(`order retrieval failed: ${retrieveOrderResponse.status} - ${retrieveOrderResponse.body}`); // Log an error message if order retrieval fails
       }
    })
+}
+
+export function teardown(data)
+{
+   data.testEndTime= new Date().toISOString(); // Record the end time of the test in ISO format for later analysis and reporting
+   console.log(`Test started at: ${data.testStartTime} and ended at: ${data.testEndTime}`); // Log the start and end times of the test for better visibility and analysis of test duration
 }
